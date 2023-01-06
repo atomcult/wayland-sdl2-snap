@@ -1,0 +1,88 @@
+name: wayland-sdl2-test
+base: core22
+version: '0.1'
+summary: Snappy test of raylib and SDL2
+description: |
+  This is my-snap's description. You have a paragraph or two to tell the
+  most important story about your snap. Keep it under 100 words though,
+  we live in tweetspace and your description wants to look good in the snap
+  store.
+
+grade: stable
+confinement: strict
+
+environment:
+  SDL_VIDEODRIVER: wayland
+  LIBGL_DRIVERS_PATH: ${SNAP}/graphics/lib
+  __EGL_VENDOR_LIBRARY_DIRS: ${SNAP}/graphics/glvnd/egl_vendor.d
+  XKB_CONFIG_ROOT: ${SNAP}/usr/share/X11/xkb
+
+layout:
+  /usr/share/libdrm:
+    bind: $SNAP/usr/share/libdrm
+
+apps:
+  ubuntu:
+    command: bin/ubuntu
+    command-chain: [bin/desktop-launch]
+    plugs:
+      - desktop        # Disabling creates a read error within the desktop-launch
+                       #   script, but everything seems to work fine
+      - desktop-legacy # Only included for parity with `desktop`
+      - opengl         # Disabling creates EGL DRI errors, but everything seems to
+                       #   work anyway
+      - wayland
+
+parts:
+  src:
+    after: [raylib]
+    plugin: make
+    source: ./src
+    make-parameters:
+      - PREFIX=$CRAFT_PART_INSTALL
+
+  raylib-deps:
+    plugin: nil
+    stage-packages:
+      - libwayland-cursor0
+      - libwayland-egl1
+      - libegl1
+      - libgl1-mesa-dri
+      - libxkbcommon0
+      - libdrm-common
+
+  raylib:
+    plugin: cmake
+    source: https://github.com/raysan5/raylib.git
+    source-type: git
+    source-tag: 4.2.0
+    cmake-parameters:
+      - -DBUILD_SHARED_LIBS=ON
+      - -DUSE_WAYLAND=ON
+      - -DCMAKE_INSTALL_PREFIX=/usr
+      - -DCMAKE_C_FLAGS=-s
+    # TODO: Figure out which packages are actually necessary
+    build-packages:
+      - build-essential
+      - libasound2-dev
+      - mesa-common-dev
+      - libx11-dev
+      - libxrandr-dev
+      - libxi-dev
+      - xorg-dev
+      - libgl1-mesa-dev
+      - libglu1-mesa-dev
+      - libwayland-dev
+      - libxkbcommon-dev
+      - wayland-protocols
+    prime:
+      - usr/lib/${CRAFT_ARCH_TRIPLET}/lib*
+
+  desktop-glib-only:
+    source: https://github.com/ubuntu/snapcraft-desktop-helpers.git
+    source-subdir: glib-only
+    plugin: make
+    build-packages:
+      - libglib2.0-dev
+    stage-packages:
+      - libglib2.0-bin
